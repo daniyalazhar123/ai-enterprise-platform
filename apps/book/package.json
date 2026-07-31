@@ -1,0 +1,12 @@
+{
+  "name": "@ai-enterprises/book",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Book app - not configured yet'",
+    "build": "echo 'Book app - not configured yet'",
+    "lint": "echo 'Book app - no lint configured'",
+    "test": "echo 'Book app - no tests configured'",
+    "typecheck": "echo 'Book app - no typecheck configured'"
+  }
+}

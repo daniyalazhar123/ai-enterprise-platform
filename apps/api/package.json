@@ -1,0 +1,13 @@
+{
+  "name": "@ai-enterprises/api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI Enterprises API - Python FastAPI backend",
+  "scripts": {
+    "dev": "uvicorn main:app --reload",
+    "build": "echo 'Python project - no JS build needed'",
+    "lint": "ruff check .",
+    "test": "pytest",
+    "clean": "echo 'Nothing to clean'"
+  }
+}
