@@ -11,8 +11,8 @@ from apps.api.app.ai.schemas.models import ChatMessage, SourceCitation
 @pytest.fixture
 def mock_llm_router():
     with patch("apps.api.app.ai.agents.chat_agent.llm_router") as mock:
-        mock.generate = AsyncMock()
-        mock.generate.return_value = MagicMock(
+        mock.complete = AsyncMock()
+        mock.complete.return_value = MagicMock(
             content="Test response",
             model="gpt-4o",
             usage={"prompt_tokens": 10, "completion_tokens": 20},
@@ -22,11 +22,21 @@ def mock_llm_router():
 
 @pytest.fixture
 def mock_conversation_memory():
-    with patch("apps.api.app.ai.agents.chat_agent.conversation_memory") as mock:
-        mock.get_or_create = AsyncMock()
-        mock.get_or_create.return_value = ("conv-123", [])
-        mock.add_message = AsyncMock()
-        yield mock
+    with patch("apps.api.app.ai.agents.chat_agent.ConversationMemory") as mock_cls:
+        mock_memory = MagicMock()
+        mock_memory.get_or_create = AsyncMock(return_value={
+            "id": "conv-123",
+            "user_id": "user-1",
+            "title": "Chat session",
+            "created_at": "",
+            "updated_at": "",
+            "message_count": 0,
+            "metadata": {},
+        })
+        mock_memory.add_message = AsyncMock()
+        mock_memory.get_history = AsyncMock(return_value=[])
+        mock_cls.return_value = mock_memory
+        yield mock_memory
 
 
 @pytest.mark.asyncio
@@ -43,28 +53,38 @@ async def test_chat_agent_basic(mock_llm_router, mock_conversation_memory):
 @pytest.mark.asyncio
 async def test_chat_agent_with_rag(mock_llm_router, mock_conversation_memory):
     with patch("apps.api.app.ai.agents.chat_agent.rag_pipeline") as mock_rag:
-        mock_rag.retrieve = AsyncMock()
-        mock_rag.retrieve.return_value = (
-            [SourceCitation(id="src-1", title="Test", content="Test content", score=0.95, source="pdf")],
-            "Retrieved context",
-        )
-        mock_rag.augment = AsyncMock()
-        mock_rag.augment.return_value = "Augmented query"
+        mock_rag.search = AsyncMock(return_value=[
+            {
+                "id": "src-1",
+                "title": "Test",
+                "content": "Test content",
+                "score": 0.95,
+                "source": "pdf",
+            }
+        ])
 
         agent = ChatAgent(user_id="user-1")
         response = await agent.run(message="Hello", conversation_id=None, use_rag=True)
 
         assert response.message.content == "Test response"
-        mock_rag.retrieve.assert_called_once()
-        mock_rag.augment.assert_called_once()
+        mock_rag.search.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_chat_agent_existing_conversation(mock_llm_router, mock_conversation_memory):
-    mock_conversation_memory.get_or_create.return_value = ("conv-456", [
-        ChatMessage(role="user", content="Previous question"),
-        ChatMessage(role="assistant", content="Previous answer"),
-    ])
+    mock_conversation_memory.get_or_create.return_value = {
+        "id": "conv-456",
+        "user_id": "user-1",
+        "title": "Chat session",
+        "created_at": "",
+        "updated_at": "",
+        "message_count": 2,
+        "metadata": {},
+    }
+    mock_conversation_memory.get_history.return_value = [
+        {"role": "user", "content": "Previous question"},
+        {"role": "assistant", "content": "Previous answer"},
+    ]
 
     agent = ChatAgent(user_id="user-1")
     response = await agent.run(message="Follow up", conversation_id="conv-456")

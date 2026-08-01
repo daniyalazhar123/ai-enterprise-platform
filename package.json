@@ -4,7 +4,8 @@
     "private":  true,
     "description":  "AI Enterprises - Interactive AI Textbook Platform",
     "workspaces":  [
-
+                       "apps/*",
+                       "packages/*"
                    ],
     "scripts":  {
                     "dev":  "turbo run dev",

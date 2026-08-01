@@ -40,6 +40,7 @@ class ChatRequest(BaseModel):
     conversation_id: str | None = None
     message: str
     stream: bool = True
+    use_rag: bool = True
     temperature: float | None = None
     max_tokens: int | None = None
     context: dict[str, Any] = {}
@@ -49,12 +50,15 @@ class ChatResponse(BaseModel):
     conversation_id: str
     message: ChatMessage
     sources: list[SourceCitation] = []
+    model: str = ""
 
 
 class StreamChunk(BaseModel):
-    token: str
+    event_type: str = "token"
+    token: str = ""
     index: int = 0
     finish_reason: str | None = None
+    content: str = ""
 
 
 class SourceCitation(BaseModel):
@@ -62,7 +66,10 @@ class SourceCitation(BaseModel):
     title: str
     section: str | None = None
     content: str
-    relevance: float = 0.0
+    score: float = 0.0
+    source: str = ""
+    chunk_index: int = 0
+    relevance: str = "medium"
     url: str | None = None
     page: int | None = None
 
@@ -70,24 +77,36 @@ class SourceCitation(BaseModel):
 class TutorRequest(BaseModel):
     conversation_id: str | None = None
     topic: str
-    message: str
+    question: str = ""
+    message: str = ""
     stream: bool = True
 
 
+class TutorResponse(BaseModel):
+    conversation_id: str
+    topic: str
+    question: str = ""
+    response: str
+    citations: list[SourceCitation] = []
+
+
 class QuizGenerateRequest(BaseModel):
-    chapter_id: str
-    count: int = 10
-    difficulty: Literal["beginner", "intermediate", "advanced"] = "intermediate"
+    topic: str = ""
+    num_questions: int = 10
+    difficulty: Literal["easy", "medium", "hard", "beginner", "intermediate", "advanced"] = "medium"
+    conversation_id: str | None = None
+    chapter_id: str = ""
+    count: int | None = None
 
 
 class QuizQuestion(BaseModel):
     id: str
-    type: Literal["multiple_choice", "true_false", "fill_blank", "multiple_select"]
+    type: Literal["multiple_choice", "true_false", "fill_blank", "multiple_select"] = "multiple_choice"
     question: str
     options: list[str] | None = None
     correct_answer: str | list[str]
-    explanation: str
-    difficulty: str
+    explanation: str = ""
+    difficulty: str = "medium"
     section: str | None = None
 
 
@@ -99,8 +118,13 @@ class QuizResponse(BaseModel):
     difficulty: str
 
 
+class QuizGenerateResponse(QuizResponse):
+    status: str = "generated"
+
+
 class QuizSubmitRequest(BaseModel):
-    quiz_id: str
+    quiz_data: list[QuizQuestion] = []
+    quiz_id: str = ""
     answers: dict[str, str | list[str]]
 
 
@@ -112,6 +136,10 @@ class QuizResult(BaseModel):
     answers: dict[str, str | list[str]]
     correct_answers: dict[str, str | list[str]]
     feedback: dict[str, str]
+
+
+class QuizSubmitResponse(QuizResult):
+    status: str = "submitted"
 
 
 class InterviewRequest(BaseModel):
@@ -127,16 +155,38 @@ class InterviewResponse(BaseModel):
     total_questions: int
 
 
+class InterviewStartResponse(BaseModel):
+    session_id: str
+    question: str
+    question_number: int = 1
+    total_questions: int = 8
+
+
 class InterviewSubmitRequest(BaseModel):
     session_id: str
     answer: str
 
 
+class InterviewEvaluateRequest(BaseModel):
+    conversation_id: str
+    question_index: int = 0
+    answer: str
+
+
 class InterviewFeedback(BaseModel):
     session_id: str
-    strengths: list[str]
-    improvements: list[str]
-    score: int
+    strengths: list[str] = []
+    improvements: list[str] = []
+    score: int = 0
+    next_question: str | None = None
+    is_complete: bool = False
+
+
+class InterviewEvaluateResponse(BaseModel):
+    session_id: str
+    strengths: list[str] = []
+    improvements: list[str] = []
+    score: int = 0
     next_question: str | None = None
     is_complete: bool = False
 

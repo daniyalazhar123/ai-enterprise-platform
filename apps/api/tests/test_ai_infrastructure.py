@@ -19,7 +19,7 @@ class TestLlmRouter:
     async def test_router_with_no_providers(self):
         router = LlmRouter()
         with pytest.raises(Exception):
-            await router.generate(prompt="test", system_prompt="test")
+            await router.complete(messages=[{"role": "user", "content": "test"}])
 
 
 class TestHybridSearch:
@@ -49,8 +49,10 @@ class TestConversationMemory:
     @pytest.mark.asyncio
     async def test_list_conversations_empty(self):
         memory = ConversationMemory()
-        with patch("apps.api.app.ai.memory.conversation_memory.redis_client") as mock_redis:
-            mock_redis.keys = MagicMock(return_value=[])
+        with patch("apps.api.app.ai.memory.conversation_memory.get_redis") as mock_get_redis:
+            mock_redis = AsyncMock()
+            mock_redis.keys = AsyncMock(return_value=[])
+            mock_get_redis.return_value = mock_redis
             results = await memory.list_conversations(user_id="user-1")
             assert results == []
 
@@ -61,55 +63,50 @@ class TestToolRegistry:
         mock_tool = MagicMock()
         mock_tool.name = "test_tool"
         registry.register(mock_tool)
-        assert registry.get_tool("test_tool") == mock_tool
+        tools = registry.get_openai_tools()
+        names = [t["function"]["name"] for t in tools]
+        assert "test_tool" in names
 
-    def test_get_nonexistent_tool(self):
-        registry = ToolRegistry()
-        assert registry.get_tool("nonexistent") is None
-
-    def test_list_tools(self):
+    def test_register_duplicate(self):
         registry = ToolRegistry()
         mock_tool = MagicMock()
         mock_tool.name = "test_tool"
         registry.register(mock_tool)
-        tools = registry.list_tools()
-        assert len(tools) == 1
-        assert tools[0]["name"] == "test_tool"
+        registry.register(mock_tool)
+        tools = registry.get_openai_tools()
+        names = [t["function"]["name"] for t in tools]
+        assert len([n for n in names if n == "test_tool"]) == 1
 
 
 class TestPromptManager:
     def test_get_template(self):
         manager = PromptManager()
-        template = manager.get_template("chat_default")
-        assert template is not None
-        assert "assistant" in template.lower()
+        template = manager.render("chat_default", {})
+        assert template != ""
+        assert "expert" in template.lower()
 
     def test_get_nonexistent_template(self):
         manager = PromptManager()
-        template = manager.get_template("nonexistent")
-        assert template is not None
-        assert "helpful" in template.lower()
+        template = manager.render("nonexistent", {})
+        assert template == ""
 
     def test_custom_template(self):
         manager = PromptManager()
-        template = manager.get_template("tutor_socratic")
-        assert template is not None
+        template = manager.render("tutor_socratic", {"topic": "Python", "display_name": "x", "difficulty": "intermediate"})
+        assert template != ""
         assert "question" in template.lower()
 
 
 class TestContextManager:
     @pytest.mark.asyncio
-    async def test_get_progress_nonexistent(self):
+    async def test_build_context(self):
         manager = ContextManager()
-        with patch("apps.api.app.ai.context.manager.redis_client") as mock_redis:
-            mock_redis.get = AsyncMock(return_value=None)
-            progress = await manager.get_progress(user_id="user-1")
-            assert progress["current_chapter"] is None
+        context = await manager.build_context(user_id="user-1")
+        assert context["user_id"] == "user-1"
+        assert context["display_name"] == "Student"
 
     @pytest.mark.asyncio
-    async def test_update_progress(self):
+    async def test_get_context_for_section(self):
         manager = ContextManager()
-        with patch("apps.api.app.ai.context.manager.redis_client") as mock_redis:
-            mock_redis.set = AsyncMock()
-            await manager.update_progress(user_id="user-1", chapter="Chapter 1")
-            mock_redis.set.assert_called_once()
+        context = await manager.get_context_for_section(user_id="user-1", section_id="03-2")
+        assert context["section_id"] == "03-2"

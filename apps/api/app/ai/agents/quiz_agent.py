@@ -1,17 +1,28 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncGenerator
 from typing import Any
 from uuid import uuid4
 
 from apps.api.app.ai.llm.router import llm_router
 from apps.api.app.ai.prompts.manager import prompt_manager
 from apps.api.app.ai.rag.pipeline import rag_pipeline
-from apps.api.app.ai.schemas.models import QuizQuestion, QuizResponse
+from apps.api.app.ai.schemas.models import (
+    QuizGenerateResponse,
+    QuizQuestion,
+    QuizResponse,
+    QuizSubmitResponse,
+    StreamChunk,
+)
 from apps.api.app.core.config import settings
 
 
 class QuizAgent:
+    def __init__(self, user_id: str = "anonymous", conversation_id: str | None = None) -> None:
+        self.user_id = user_id
+        self.conversation_id = conversation_id
+
     async def generate_quiz(
         self,
         chapter_id: str,
@@ -70,6 +81,57 @@ class QuizAgent:
             difficulty=difficulty,
         )
 
+    async def generate(
+        self,
+        topic: str,
+        num_questions: int = 10,
+        difficulty: str = "medium",
+        conversation_id: str | None = None,
+    ) -> QuizGenerateResponse:
+        if conversation_id:
+            self.conversation_id = conversation_id
+
+        chapter_id = topic
+        quiz = await self.generate_quiz(
+            chapter_id=chapter_id,
+            count=num_questions,
+            difficulty=difficulty,
+        )
+        return QuizGenerateResponse(
+            id=quiz.id,
+            chapter_id=quiz.chapter_id,
+            title=quiz.title,
+            questions=quiz.questions,
+            difficulty=quiz.difficulty,
+            status="generated",
+        )
+
+    async def generate_stream(
+        self,
+        topic: str,
+        num_questions: int = 10,
+        difficulty: str = "medium",
+        conversation_id: str | None = None,
+    ) -> AsyncGenerator[StreamChunk, None]:
+        if conversation_id:
+            self.conversation_id = conversation_id
+
+        yield StreamChunk(event_type="token", token="", content="")
+
+        quiz = await self.generate(
+            topic=topic,
+            num_questions=num_questions,
+            difficulty=difficulty,
+            conversation_id=conversation_id,
+        )
+
+        payload = quiz.model_dump_json()
+        yield StreamChunk(
+            event_type="done",
+            content=payload,
+            finish_reason="stop",
+        )
+
     async def evaluate_answers(
         self,
         quiz: QuizResponse,
@@ -105,6 +167,31 @@ class QuizAgent:
             "correct_answers": correct_answers,
             "feedback": feedback,
         }
+
+    async def evaluate(
+        self,
+        quiz_data: list[QuizQuestion],
+        answers: dict[str, str | list[str]],
+        quiz_id: str = "",
+    ) -> QuizSubmitResponse:
+        quiz = QuizResponse(
+            id=quiz_id or str(uuid4()),
+            chapter_id="",
+            title="",
+            questions=quiz_data,
+            difficulty="",
+        )
+        result = await self.evaluate_answers(quiz, answers)
+        return QuizSubmitResponse(
+            quiz_id=quiz.id,
+            score=result["score"],
+            total=result["total"],
+            percentage=result["percentage"],
+            answers=result["answers"],
+            correct_answers=result["correct_answers"],
+            feedback=result["feedback"],
+            status="submitted",
+        )
 
 
 quiz_agent = QuizAgent()

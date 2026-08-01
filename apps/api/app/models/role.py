@@ -6,9 +6,9 @@ from uuid import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
 from apps.api.app.db.base import TimestampMixin, UUIDPrimaryKeyMixin
+from apps.api.app.models.permission import Permission, RolePermissionLink
 
 if TYPE_CHECKING:
-    from apps.api.app.models.permission import Permission
     from apps.api.app.models.user import User
 
 
@@ -27,4 +27,4 @@ class Role(UUIDPrimaryKeyMixin, TimestampMixin, table=True):
     is_system: bool = Field(default=False, nullable=False)
 
     users: List["User"] = Relationship(back_populates="roles", link_model=UserRoleLink)
-    permissions: List["Permission"] = Relationship(back_populates="roles", link_model="RolePermissionLink")
+    permissions: List["Permission"] = Relationship(back_populates="roles", link_model=RolePermissionLink)

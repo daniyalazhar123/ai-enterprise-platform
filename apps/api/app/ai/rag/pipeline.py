@@ -14,6 +14,23 @@ class RagPipeline:
         self.max_context_chunks = settings.RAG_MAX_CONTEXT_CHUNKS
         self.score_threshold = settings.RAG_SCORE_THRESHOLD
 
+    async def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: dict[str, Any] | None = None,
+        user_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        results = await hybrid_search.search(
+            query=query,
+            top_k=top_k,
+            filters={
+                **(filters or {}),
+                **({"user_id": user_id} if user_id else {}),
+            },
+        )
+        return [r for r in results if r.get("score", 0) >= self.score_threshold]
+
     async def retrieve(
         self,
         query: str,

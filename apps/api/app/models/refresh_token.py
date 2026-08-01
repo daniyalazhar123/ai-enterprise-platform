@@ -4,6 +4,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
+from sqlalchemy import Column, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship
 
 from apps.api.app.db.base import TimestampMixin, UUIDPrimaryKeyMixin
@@ -20,7 +22,10 @@ class RefreshToken(UUIDPrimaryKeyMixin, TimestampMixin, table=True):
     session_id: UUID = Field(foreign_key="sessions.id", nullable=False)
     token_hash: str = Field(nullable=False)
     family: str = Field(max_length=64, nullable=False)
-    metadata: dict[str, Any] = Field(default={}, nullable=False)
+    data: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column("metadata", JSONB, nullable=False, server_default=text("'{}'")),
+    )
     expires_at: datetime = Field(nullable=False)
     revoked_at: datetime | None = Field(default=None, nullable=True)
 

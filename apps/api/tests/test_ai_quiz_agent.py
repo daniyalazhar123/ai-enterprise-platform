@@ -15,16 +15,16 @@ from apps.api.app.ai.schemas.models import (
 @pytest.fixture
 def mock_llm_router():
     with patch("apps.api.app.ai.agents.quiz_agent.llm_router") as mock:
-        mock.generate = AsyncMock()
+        mock.complete = AsyncMock()
 
-        async def fake_generate(*args, **kwargs):
+        async def fake_complete(*args, **kwargs):
             return MagicMock(
-                content='[{"question":"What is Python?","options":["A","B","C","D"],"correct_answer":0,"explanation":"Test"}]',
+                content='[{"question":"What is Python?","options":["A","B","C","D"],"correct_answer":"A","explanation":"Test"}]',
                 model="gpt-4o",
                 usage={"prompt_tokens": 30, "completion_tokens": 60},
             )
 
-        mock.generate.side_effect = fake_generate
+        mock.complete.side_effect = fake_complete
         yield mock
 
 
@@ -51,16 +51,17 @@ async def test_quiz_evaluate(mock_llm_router):
             id="q1",
             question="What is Python?",
             options=["A", "B", "C", "D"],
-            correct_answer=0,
+            correct_answer="A",
             explanation="Test",
         )
     ]
     response = await agent.evaluate(
         quiz_data=questions,
-        answers={"q1": 0},
+        answers={"q1": "A"},
     )
 
     assert isinstance(response, QuizSubmitResponse)
+    assert response.score == 1
 
 
 @pytest.mark.asyncio
@@ -71,14 +72,14 @@ async def test_quiz_evaluate_with_wrong_answer(mock_llm_router):
             id="q1",
             question="What is Python?",
             options=["A", "B", "C", "D"],
-            correct_answer=0,
+            correct_answer="A",
             explanation="Python is a language",
         )
     ]
     response = await agent.evaluate(
         quiz_data=questions,
-        answers={"q1": 1},
+        answers={"q1": "B"},
     )
 
     assert isinstance(response, QuizSubmitResponse)
-    assert response.score is not None
+    assert response.score == 0

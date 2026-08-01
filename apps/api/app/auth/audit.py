@@ -32,7 +32,7 @@ class AuditLogger:
             action=action,
             actor_ip=actor_ip,
             actor_ua=actor_ua,
-            metadata=metadata or {},
+            data=metadata or {},
             created_at=datetime.now(timezone.utc),
         )
         db.add(log_entry)

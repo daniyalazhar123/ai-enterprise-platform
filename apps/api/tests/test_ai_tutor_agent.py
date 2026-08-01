@@ -11,8 +11,8 @@ from apps.api.app.ai.schemas.models import TutorResponse
 @pytest.fixture
 def mock_llm_router():
     with patch("apps.api.app.ai.agents.tutor_agent.llm_router") as mock:
-        mock.generate = AsyncMock()
-        mock.generate.return_value = MagicMock(
+        mock.complete = AsyncMock()
+        mock.complete.return_value = MagicMock(
             content="Let me guide you through this step by step...",
             model="gpt-4o",
             usage={"prompt_tokens": 50, "completion_tokens": 100},
@@ -20,8 +20,27 @@ def mock_llm_router():
         yield mock
 
 
+@pytest.fixture
+def mock_memory():
+    with patch("apps.api.app.ai.agents.tutor_agent.ConversationMemory") as mock_cls:
+        mock_memory = MagicMock()
+        mock_memory.get_or_create = AsyncMock(return_value={
+            "id": "conv-123",
+            "user_id": "user-1",
+            "title": "Tutor session",
+            "created_at": "",
+            "updated_at": "",
+            "message_count": 0,
+            "metadata": {},
+        })
+        mock_memory.add_message = AsyncMock()
+        mock_memory.get_history = AsyncMock(return_value=[])
+        mock_cls.return_value = mock_memory
+        yield mock_memory
+
+
 @pytest.mark.asyncio
-async def test_tutor_agent_basic(mock_llm_router):
+async def test_tutor_agent_basic(mock_llm_router, mock_memory):
     agent = TutorAgent(user_id="user-1")
     response = await agent.tutor(
         topic="Python decorators",
@@ -34,7 +53,7 @@ async def test_tutor_agent_basic(mock_llm_router):
 
 
 @pytest.mark.asyncio
-async def test_tutor_agent_socratic_method(mock_llm_router):
+async def test_tutor_agent_socratic_method(mock_llm_router, mock_memory):
     agent = TutorAgent(user_id="user-1")
     response = await agent.tutor(
         topic="Binary trees",
@@ -47,16 +66,22 @@ async def test_tutor_agent_socratic_method(mock_llm_router):
 
 
 @pytest.mark.asyncio
-async def test_tutor_agent_with_history(mock_llm_router):
-    with patch("apps.api.app.ai.agents.tutor_agent.conversation_memory") as mock_memory:
-        mock_memory.get_or_create = AsyncMock()
-        mock_memory.get_or_create.return_value = ("conv-789", [])
+async def test_tutor_agent_with_history(mock_llm_router, mock_memory):
+    mock_memory.get_or_create.return_value = {
+        "id": "conv-789",
+        "user_id": "user-1",
+        "title": "Tutor session",
+        "created_at": "",
+        "updated_at": "",
+        "message_count": 1,
+        "metadata": {},
+    }
 
-        agent = TutorAgent(user_id="user-1")
-        response = await agent.tutor(
-            topic="Recursion",
-            question="Explain base cases",
-            conversation_id="conv-789",
-        )
+    agent = TutorAgent(user_id="user-1")
+    response = await agent.tutor(
+        topic="Recursion",
+        question="Explain base cases",
+        conversation_id="conv-789",
+    )
 
-        assert response.conversation_id == "conv-789"
+    assert response.conversation_id == "conv-789"

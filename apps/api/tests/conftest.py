@@ -14,13 +14,23 @@ from sqlmodel import SQLModel
 from apps.api.app.core.config import settings
 from apps.api.app.core.exceptions import AppException
 from apps.api.app.db.session import get_session
-from apps.api.app.main import app
+from apps.api.main import app
 from apps.api.app.models.user import User
 
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_enterprises_test"
 
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, connect_args={"timeout": 3})
 test_session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+
+
+async def _database_reachable() -> bool:
+    try:
+        async with asyncio.timeout(3):
+            conn = await test_engine.connect()
+            await conn.close()
+        return True
+    except Exception:
+        return False
 
 
 @pytest.fixture(scope="session")
@@ -30,8 +40,10 @@ def event_loop():
     loop.close()
 
 
-@pytest_asyncio.fixture(autouse=True)
+@pytest_asyncio.fixture
 async def setup_database():
+    if not await _database_reachable():
+        pytest.skip("PostgreSQL test database unavailable")
     async with test_engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
     yield
@@ -40,7 +52,7 @@ async def setup_database():
 
 
 @pytest_asyncio.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session(setup_database) -> AsyncGenerator[AsyncSession, None]:
     async with test_session_factory() as session:
         yield session
         await session.rollback()

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, List
 from uuid import UUID
 
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship
 
 from apps.api.app.db.base import TimestampMixin, UUIDPrimaryKeyMixin
@@ -20,7 +21,7 @@ class Session(UUIDPrimaryKeyMixin, TimestampMixin, table=True):
     token_hash: str = Field(nullable=False)
     ip_address: str = Field(nullable=False)
     user_agent: str = Field(nullable=False)
-    device_info: dict[str, Any] = Field(default={}, nullable=False)
+    device_info: dict[str, Any] = Field(default={}, nullable=False, sa_type=JSONB)
     is_active: bool = Field(default=True, nullable=False)
     expires_at: datetime = Field(nullable=False)
     last_used_at: datetime = Field(nullable=False)

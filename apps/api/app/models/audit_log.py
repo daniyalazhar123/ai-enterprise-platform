@@ -4,6 +4,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
+from sqlalchemy import Column, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship
 
 from apps.api.app.db.base import UUIDPrimaryKeyMixin
@@ -23,7 +25,10 @@ class AuditLog(UUIDPrimaryKeyMixin, table=True):
     action: str = Field(max_length=100, nullable=False)
     actor_ip: str = Field(nullable=False)
     actor_ua: str = Field(nullable=False)
-    metadata: dict[str, Any] = Field(default={}, nullable=False)
+    data: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column("metadata", JSONB, nullable=False, server_default=text("'{}'")),
+    )
     created_at: datetime = Field(nullable=False)
 
     user: "User" = Relationship(back_populates="audit_logs")

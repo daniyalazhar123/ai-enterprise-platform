@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, File, Form, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from apps.api.app.ai.endpoints import (
@@ -18,6 +18,7 @@ from apps.api.app.ai.schemas.models import (
     InterviewEvaluateResponse,
     InterviewStartResponse,
     QuizGenerateRequest,
+    QuizGenerateResponse,
     QuizSubmitRequest,
     QuizSubmitResponse,
     TutorRequest,
@@ -177,8 +178,8 @@ async def delete_conversation(
 @ai_router.patch("/ai/conversations/{conversation_id}")
 async def update_conversation(
     conversation_id: str,
+    user: CurrentUser,
     title: str = Form(...),
-    user: CurrentUser = Depends(),
 ) -> dict[str, str]:
     success = await conversation_memory.update_title(
         conversation_id=conversation_id,
@@ -192,10 +193,10 @@ async def update_conversation(
 
 @ai_router.post("/ai/documents/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
+    user: CurrentUser,
     file: UploadFile = File(...),
     chapter_id: str = Form(default=""),
     section: str = Form(default=""),
-    user: CurrentUser = Depends(),
 ) -> DocumentUploadResponse:
     content = await file.read()
     temp_path = f"/tmp/{file.filename}"
@@ -255,9 +256,9 @@ async def delete_document(
 
 @ai_router.post("/ai/search")
 async def search_documents(
+    user: CurrentUser,
     query: str = Form(...),
     top_k: int = Form(default=5),
-    user: CurrentUser = Depends(),
 ) -> list[dict[str, Any]]:
     from apps.api.app.ai.rag.hybrid_search import hybrid_search
     results = await hybrid_search.search(

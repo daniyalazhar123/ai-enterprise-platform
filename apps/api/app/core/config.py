@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     def database_url_sync(self) -> str:
         return self.DATABASE_URL.replace("+asyncpg", "")
 
+    # ── Database ─────────────────────────────────────────────────────────
+    DB_AUTO_CREATE_SCHEMA: bool = True
+
     # ── Redis ────────────────────────────────────────────────────────────
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_CACHE_TTL: int = 300
@@ -152,6 +155,7 @@ class Settings(BaseSettings):
 
     # ── RAG ──────────────────────────────────────────────────────────────
     RAG_TOP_K: int = 5
+    RAG_MAX_CONTEXT_CHUNKS: int = 5
     RAG_SCORE_THRESHOLD: float = 0.65
     RAG_RRF_K: int = 60
     RAG_HYBRID_ALPHA: float = 0.5
